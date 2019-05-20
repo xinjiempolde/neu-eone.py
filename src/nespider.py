@@ -538,9 +538,20 @@ class NeuStu(object):
         else:
             return True
 
-    # 待开发
-    def lost_card(self):
-        pass
+    # 已经完成，但尚未测试
+    def lost_card(self, card_pwd, human_id):
+        lost_page = requests.get('http://ecard.neu.edu.cn/selfsearch/User/UserLoss.aspx',
+                                 cookies=self.card_cookies, headers=self.__headers)
+        data = {
+                '__VIEWSTATE': re.findall('id="__VIEWSTATE" value="(.*?)"', lost_page.text)[0],
+                '__EVENTVALIDATION': re.findall('id="__EVENTVALIDATION" value="(.*?)"', lost_page.text)[0],
+                'ctl00$ContentPlaceHolder1$txtPwd': card_pwd,
+                'ctl00$ContentPlaceHolder1$txtIDcardNo': human_id,
+                'ctl00$ContentPlaceHolder1$btnLoss': '挂  失'
+        }
+        response = requests.post('http://ecard.neu.edu.cn/selfsearch/User/UserLoss.aspx',
+                        data=data,cookies=self.card_cookies, headers=self.__headers)
+        return re.findall("showMsg\('(.*?)'\)", response.text)[0]
 
     # 初始化
     def __init__(self, stu_id, pwd):
