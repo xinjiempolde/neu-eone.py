@@ -276,26 +276,27 @@ class NeuStu(object):
         # extend_url 是用来续借的时候使用的，不必透露给用户，在library_continue_borrow中使用了这个链接
         extend_url = re.findall('var strData = "(.*?)"', borrow_res)[0]
 
-        res = []
-        histories = []
-        for i in range(0, len(writers)):
-            res.append({
+        res = [
+            {
                 'writer': writers[i],
                 'book': books[i],
                 'back_day': back_day[2 * i],
                 'book_code': books_code[i],
-            })
-
-        for i in range(0, len(history)):
-            histories.append({
+            }
+            for i in range(0, len(writers))
+        ]
+        histories = [
+            {
                 'writer': history[i][0],
                 'name': history[i][1],
                 'publish_year': history[i][2],
                 # 为了方便存储与传输，我将借书、还书时间由人类公元纪年法转化为unix时间戳
-                'back_time': int(time.mktime( time.strptime(history[i][3]+' '+history[i][4], '%Y%m%d %H:%M'))),
-                'real_back_time': int(time.mktime( time.strptime(history[i][5]+' '+history[i][6], '%Y%m%d %H:%M'))),
+                'back_time': int(time.mktime(time.strptime(history[i][3] + ' ' + history[i][4], '%Y%m%d %H:%M'))),
+                'real_back_time': int(time.mktime(time.strptime(history[i][5] + ' ' + history[i][6], '%Y%m%d %H:%M'))),
                 'type': history[i][7]
-            })
+            }
+            for i in range(0, len(history))
+        ]
 
         return {'extend_url': extend_url, 'book_data': res, 'history': histories}
 
