@@ -1,4 +1,7 @@
-import requests, json, re, time
+import requests
+import json
+import re
+import time
 
 
 # 图书馆搜索引擎
@@ -6,19 +9,21 @@ class LibrarySearch(object):
     
     # 分析第一页获取 其他页的URL
     def __decode_first_text(self, text):
-        return_list = []
+
         res = re.findall('<tr><td class=label1>作者：<td class=content valign=top>(.*?)<td class=lab\
 el1>索书号：<td class=content valign=top>(.*?) \n<tr><td class=label1>出版社：<td class\
 =content valign=top>(.*?)<td class=label>年份：<td class=content valign=top>(.*?) ', text)
         result_num = int(re.findall('(\d+) \(最大显示记录', text)[0])
         self.query_url = re.findall('10,"(.*?)1"\)</script></div>[\s\S]*?记录', text)[0]
-        for i in res:
-            return_list.append({
+        return_list = [
+            {
                 'writer': i[0],
                 'index': i[1],
                 'publisher': i[2],
                 'year': i[3]
-            })
+            }
+            for i in res
+        ]
         self.sum = result_num
         self.first = return_list  # 保存第一页的信息
 
@@ -32,23 +37,25 @@ el1>索书号：<td class=content valign=top>(.*?) \n<tr><td class=label1>出版
             else:
                 page = str(int(page)-1)+'1'
         text = str(requests.get(self.query_url+page).content, 'utf8')
-        return_list = []
+
         res = re.findall('<tr><td class=label1>作者：<td class=content valign=top>(.*?)<td class=lab\
 el1>索书号：<td class=content valign=top>(.*?) \n<tr><td class=label1>出版社：<td class\
 =content valign=top>(.*?)<td class=label>年份：<td class=content valign=top>(.*?) ', text)
-        for i in res:
-            return_list.append({
+        return_list = [
+            {
                 'writer': i[0],
                 'index': i[1],
                 'publisher': i[2],
                 'year': i[3]
-            })
+            }
+            for i in res
+        ]
         return return_list
 
     def __init__(self, keyword):
         # 查询参数
         param = '?func=find-b&find_code=WRD&request=%s&filter_code_1=WLN&filter_request_1=&filter_code_2=WYR&filter_request_2=&filter_code_3=WYR&filter_request_3=&filter_code_4=WFM&filter_request_4=&filter_code_5=WSL&filter_request_5='%keyword
-        query_page = str(requests.get('http://202.118.8.7:8991/F/').content, 'utf8')  # 与line254相同 不能直接获取text 需要手动转换
+        query_page = str(requests.get('http://202.118.8.7:8991/F/').content, 'utf8')  # 与line254相同 不能直接获取text 需要手动抓换
         post_url = re.findall('<form method=get name=form1 action="(.*?)" onsubmit="return presearch\(this\);">', query_page)[0]
         query_res = requests.get(post_url+param)
         query_text = str(query_res.content, 'utf8')
@@ -370,16 +377,7 @@ class NeuStu(object):
             'ids': '46600'
         }
 
-        table_headers = {
-            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-            'Referer': 'http://219.216.96.4/eams/courseTableForStd.action', # 之所以要使用定制headers的原因就在这里
-            # 经过测试，查课表页面会检测Referer，即页面来源。
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.131 Safari/537.36',
-            'Host': '219.216.96.4',
-            'Origin': 'http://219.216.96.4',
-        }
-
-        course_data = requests.post("http://219.216.96.4/eams/courseTableForStd!courseTable.action", data=post_data, headers=table_headers, cookies=self.aao_cookies)
+        course_data = requests.post("http://219.216.96.4/eams/courseTableForStd!courseTable.action", data=post_data, headers=self.__headers, cookies=self.aao_cookies)
         teachers = re.findall('var teachers = \[{id:.*?,name:"(.*?)",lab:false}\];', course_data.text)
         course_names = re.findall('actTeacherName.join\(\',\'\),".*?","(.*?)"', course_data.text)
         course_classroom = re.findall('actTeacherName.join\(\',\'\),".*?",".*?",".*?","(.*?)"', course_data.text)
@@ -396,25 +394,25 @@ class NeuStu(object):
                 this_course.append({'day': int(day[cour]), 'class_num': int(class_num[cour])})
             course_class[count] = this_course
 
-        res = []
-        info = []
-        for i in range(0, len(teachers)):
-            course = {
+        res = [
+            {
                 'teacher': teachers[i],
                 'name': course_names[i],
                 'classroom': course_classroom[i],
                 'weeks': self.__week_num(course_weeks_str[i]),
                 'time': course_class[i]
             }
-            res.append(course)
-
-        for i in course_info:
-            info.append({
+            for i in range(0, len(teachers))
+        ]
+        info = [
+            {
                 'course_code': i[0],
                 'course_name': i[1],
                 'course_score': i[2],
                 'course_teacher': i[3]
-            })
+            }
+            for i in course_info
+        ]
 
         return {'table': res, 'info': info}
 
@@ -464,12 +462,10 @@ class NeuStu(object):
                     'place': trades[i][4],
                     'terminal': trades[i][5]
                 }
-                #print(append_content)
                 res.append(append_content)
             if 1-(str(page + 1) in page_num):
                 break
             page += 1
-
         return res
 
     # 门禁记录，start与end格式为都如2019-05-18这样
@@ -477,7 +473,7 @@ class NeuStu(object):
         # 如果还没有通过一网通办获取到一卡通的cookies，则获取
         if self.card_cookies==False:
             self.__card_login()
-        #门禁记录请求界面
+        # 门禁记录请求界面
         requests_url = 'http://ecard.neu.edu.cn/selfsearch/User/DoorInfo.aspx'
         page = 1
         res = []
@@ -544,14 +540,14 @@ class NeuStu(object):
         lost_page = requests.get('http://ecard.neu.edu.cn/selfsearch/User/UserLoss.aspx',
                                  cookies=self.card_cookies, headers=self.__headers)
         data = {
-                '__VIEWSTATE': re.findall('id="__VIEWSTATE" value="(.*?)"', lost_page.text)[0],
-                '__EVENTVALIDATION': re.findall('id="__EVENTVALIDATION" value="(.*?)"', lost_page.text)[0],
-                'ctl00$ContentPlaceHolder1$txtPwd': card_pwd,
-                'ctl00$ContentPlaceHolder1$txtIDcardNo': human_id,
-                'ctl00$ContentPlaceHolder1$btnLoss': '挂  失'
+            '__VIEWSTATE': re.findall('id="__VIEWSTATE" value="(.*?)"', lost_page.text)[0],
+            '__EVENTVALIDATION': re.findall('id="__EVENTVALIDATION" value="(.*?)"', lost_page.text)[0],
+            'ctl00$ContentPlaceHolder1$txtPwd': card_pwd,
+            'ctl00$ContentPlaceHolder1$txtIDcardNo': human_id,
+            'ctl00$ContentPlaceHolder1$btnLoss': '挂  失'
         }
         response = requests.post('http://ecard.neu.edu.cn/selfsearch/User/UserLoss.aspx',
-                        data=data,cookies=self.card_cookies, headers=self.__headers)
+                                 data=data, cookies=self.card_cookies, headers=self.__headers)
         return re.findall("showMsg\('(.*?)'\)", response.text)[0]
 
     # 初始化
@@ -564,5 +560,4 @@ class NeuStu(object):
         self.card_cookies = False
         # 登录一网通办 获取登录cookies 如果成功，success将改变为True，可以通过此参数确定账号密码是否正确以及是否完成验证
         self.__index_login()
-
 
