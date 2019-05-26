@@ -3,6 +3,9 @@ import json
 import re
 import time
 
+with open('proxies.json','r') as f:
+    proxies = json.loads(f.read())
+
 
 # 图书馆搜索引擎
 class LibrarySearch(object):
@@ -36,8 +39,7 @@ el1>索书号：<td class=content valign=top>(.*?) \n<tr><td class=label1>出版
                 return None
             else:
                 page = str(int(page)-1)+'1'
-        text = str(requests.get(self.query_url+page).content, 'utf8')
-
+        text = str(requests.get(self.query_url+page, proxies=proxies['library']).content, 'utf8')
         res = re.findall('<tr><td class=label1>作者：<td class=content valign=top>(.*?)<td class=lab\
 el1>索书号：<td class=content valign=top>(.*?) \n<tr><td class=label1>出版社：<td class\
 =content valign=top>(.*?)<td class=label>年份：<td class=content valign=top>(.*?) ', text)
@@ -55,15 +57,14 @@ el1>索书号：<td class=content valign=top>(.*?) \n<tr><td class=label1>出版
     def __init__(self, keyword):
         # 查询参数
         param = '?func=find-b&find_code=WRD&request=%s&filter_code_1=WLN&filter_request_1=&filter_code_2=WYR&filter_request_2=&filter_code_3=WYR&filter_request_3=&filter_code_4=WFM&filter_request_4=&filter_code_5=WSL&filter_request_5='%keyword
-        query_page = str(requests.get('http://202.118.8.7:8991/F/').content, 'utf8')  # 与line254相同 不能直接获取text 需要手动抓换
+        query_page = str(requests.get('http://202.118.8.7:8991/F/', proxies=proxies['library']).content, 'utf8')  # 与line254相同 不能直接获取text 需要手动抓换
         post_url = re.findall('<form method=get name=form1 action="(.*?)" onsubmit="return presearch\(this\);">', query_page)[0]
-        query_res = requests.get(post_url+param)
+        query_res = requests.get(post_url+param, proxies=proxies['library'])
         query_text = str(query_res.content, 'utf8')
         self.__decode_first_text(query_text)  # 进行第一页的查询
 
 
 class NeuStu(object):
-    
     # 用于欺骗服务器的伪装头，通过这个伪装头，将爬虫伪装为Windows系统下的Chrome浏览器
     __headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
@@ -77,7 +78,7 @@ class NeuStu(object):
     @staticmethod
     def __week_num(week_str):
         res = []
-        for i in range(0,len(week_str)):
+        for i in range(0, len(week_str)):
             if week_str[i]=='1':
                 res.append(i)
         return res
@@ -87,7 +88,7 @@ class NeuStu(object):
     # 对于一卡通、教务处将使用pass.neu.edu.cn的cookies进行跳转 这个cookies被命名为pass_cookies
     # 对于图书馆、将使用portal.neu.edu.cn的cookies进行跳转 这个cookies被命名为index_cookies
     def __index_login(self):
-        login_page = requests.get('https://pass.neu.edu.cn/tpass/login')
+        login_page = requests.get('https://pass.neu.edu.cn/tpass/login', proxies=proxies['index'])
         # 生成登录参数
         lt = re.findall("input type=\"hidden\" id=\"lt\" name=\"lt\" value=\"(.*?)\" />", login_page.text)[0]
         execution = re.findall("input type=\"hidden\" name=\"execution\" value=\"(.*?)\" />", login_page.text)[0]
@@ -110,6 +111,7 @@ class NeuStu(object):
         login_post = requests.post('https://pass.neu.edu.cn/tpass/login',
                                    headers=self.__headers,
                                    cookies=login_page.cookies,
+                                   proxies=proxies['index'],
                                    data=post_data)
         for i in login_post.history:
             if 'CASTGC' in i.cookies:
@@ -127,14 +129,17 @@ class NeuStu(object):
             'Origin': 'https://portal.neu.edu.cn',
             'Content-Type': 'application/json;charset=UTF-8'
         }
-        page = requests.get('https://portal.neu.edu.cn/tp_up/up/subgroup/library', cookies=self.index_cookies, headers=lib_headers)
+        page = requests.get('https://portal.neu.edu.cn/tp_up/up/subgroup/library',
+                            cookies=self.index_cookies,
+                            headers=lib_headers,
+                            proxies=proxies['index'])
         library_url = re.findall('var url = "(.*?)"', page.text)[0]
         return library_url
 
     # 通过一网通办登录校园卡平台，私有方法
     def __card_login(self):
         card_url = 'https://pass.neu.edu.cn/tpass/login?service=http://ecard.neu.edu.cn/selflogin/login.aspx'
-        response = requests.get(card_url, cookies=self.pass_cookies)
+        response = requests.get(card_url, cookies=self.pass_cookies, proxies=proxies['index'])
 
         data = {
             'username': re.findall("<input type=hidden name='username' id='username' value='(.*?)'/>", response.text)[0],
@@ -142,8 +147,11 @@ class NeuStu(object):
             'auid': re.findall("<input type=hidden name='auid' id='auid' value='(.*?)'/>", response.text)[0]
         }
 
-        get_session = requests.post('http://ecard.neu.edu.cn/selfsearch/SSOLogin.aspx', cookies=response.cookies,
-                                    data=data, headers=self.__headers)
+        get_session = requests.post('http://ecard.neu.edu.cn/selfsearch/SSOLogin.aspx',
+                                    cookies=response.cookies,
+                                    data=data,
+                                    headers=self.__headers,
+                                    proxies=proxies['card'])
 
         self.card_cookies ={
             '.ASPXAUTSSM': get_session.history[0].cookies['.ASPXAUTSSM'],
@@ -153,7 +161,7 @@ class NeuStu(object):
     # 通过一网通办登陆教务处，私有方法
     def __aao_login(self):
         aao_url = 'https://pass.neu.edu.cn/tpass/login?service=http%3A%2F%2F219.216.96.4%2Feams%2FhomeExt.action'
-        response = requests.get(aao_url, cookies=self.pass_cookies, headers=self.__headers)
+        response = requests.get(aao_url, cookies=self.pass_cookies, headers=self.__headers, proxies=proxies['aao'])
         jsessionid = ''
         for page in response.history:
             if 'JSESSIONID' in page.cookies:
@@ -166,8 +174,9 @@ class NeuStu(object):
         res = requests.post('https://portal.neu.edu.cn/tp_up/up/subgroup/getCardMoney',
                             cookies=self.index_cookies,
                             headers=self.__headers,
-                            data='{}')
-        return json.loads(res.text)
+                            data='{}',
+                            proxies=proxies['index'])
+        return res.json()
 
     # 校园网使用情况
     @property
@@ -175,8 +184,9 @@ class NeuStu(object):
         res = requests.post('https://portal.neu.edu.cn/tp_up/up/subgroup/getWlzzList',
                             cookies=self.index_cookies,
                             headers=self.__headers,
-                            data='{}')
-        return json.loads(res.text)
+                            data='{}',
+                            proxies=proxies['index'])
+        return res.json()
 
     # 学生邮箱情况
     @property
@@ -184,8 +194,9 @@ class NeuStu(object):
         res = requests.post('https://portal.neu.edu.cn/tp_up/up/subgroup/getBindEmailInfo',
                             cookies=self.index_cookies,
                             headers=self.__headers,
-                            data='{}')
-        return json.loads(res.text)
+                            data='{}',
+                            proxies=proxies['index'])
+        return res.json()
 
     # 获取报销情况
     @property
@@ -193,8 +204,9 @@ class NeuStu(object):
         res = requests.post('https://portal.neu.edu.cn/tp_up/up/subgroup/getFinanceInfo',
                             cookies=self.index_cookies,
                             headers=self.__headers,
-                            data='{}')
-        return json.loads(res.text)
+                            data='{}',
+                            proxies=proxies['index'])
+        return res.json()
 
     # 获取学生一网通办绑定的手机号、邮箱
     @property
@@ -206,8 +218,12 @@ class NeuStu(object):
             'Origin': 'https://portal.neu.edu.cn',
             'Content-Type': 'application/json;charset=UTF-8'
         }
-        response = requests.post(post_url, headers=my_headers, cookies=self.index_cookies, data='{}')
-        return json.loads(response.text)
+        response = requests.post(post_url,
+                                 headers=my_headers,
+                                 cookies=self.index_cookies,
+                                 data='{}',
+                                 proxies=proxies['index'])
+        return response.json()
 
     # 卡是否挂失
     @property
@@ -216,7 +232,7 @@ class NeuStu(object):
         if self.card_cookies==False:
             self.__card_login()
         info_url = 'http://ecard.neu.edu.cn/selfsearch/User/Home.aspx'
-        info_page = requests.get(info_url, cookies=self.card_cookies)
+        info_page = requests.get(info_url, cookies=self.card_cookies, proxies=proxies['card'])
         res =  re.findall('<span>卡状态：(.*?)</span>', info_page.text)[0]
         if res == '正常卡' :
             return False
@@ -230,7 +246,10 @@ class NeuStu(object):
         if self.aao_cookies == None:
             self.__aao_login()
 
-        user_info = requests.get('http://219.216.96.4/eams/stdDetail.action?', cookies=self.aao_cookies, headers=self.__headers)
+        user_info = requests.get('http://219.216.96.4/eams/stdDetail.action?',
+                                 proxies=proxies['aao'],
+                                 cookies=self.aao_cookies,
+                                 headers=self.__headers)
         stu_id = re.findall('学号：[\s\S]*?<td width="25%">(.*?)</td>', user_info.text)[0]
         # 下面的注释用于获取用户照片（学生证上的那个），并保存到相对于此文件的head文件夹下，保存为“学号.jpg”
         # 如果取消注释，则将启用该功能
@@ -265,11 +284,11 @@ class NeuStu(object):
     @property
     def library_info(self):
         library_url = self.__library_url()
-        response_data = requests.get(library_url)
+        response_data = requests.get(library_url, proxies=proxies['library'])
         borrow_url = re.findall('外借[\s\S]*?href="javascript:replacePage\(\'(.*?)\'\)', str(response_data.content, 'utf8'))[0]
         history_url = re.findall('借阅历史列表[\s\S]*?href="javascript:replacePage\(\'(.*?)\'\)', str(response_data.content, 'utf8'))[0]
-        borrow_res = str(requests.get(borrow_url).content, 'utf8')
-        history_res = str(requests.get(history_url).content, 'utf8')
+        borrow_res = str(requests.get(borrow_url, proxies=proxies['library']).content, 'utf8')
+        history_res = str(requests.get(history_url, proxies=proxies['library']).content, 'utf8')
 
         history = re.findall('<td class=td1 valign=top><a href=".*?" target=_blank>(.*?)</a></td>[\s\S]*?target=_blank>(.*?)</a></td>\
 [\s\S]*?<td class=td1 valign=top>(.*?)</td>[\s\S]*?<td class=td1 valign=top>(.*?)</td>[\s\S]*?<td class=td1 valign=top>(.*?)</td>\
@@ -313,6 +332,7 @@ class NeuStu(object):
         if self.aao_cookies==None:
             self.__aao_login()
         response = requests.get('http://219.216.96.4/eams/teach/grade/course/person!search.action?semesterId='+str(semester),
+                                proxies=proxies['aao'],
                                 cookies=self.aao_cookies,
                                 headers=self.__headers)
         hash_list = re.findall('<td.*?>([\s\S]*?)</td>', response.text)
@@ -377,7 +397,11 @@ class NeuStu(object):
             'ids': '46600'
         }
 
-        course_data = requests.post("http://219.216.96.4/eams/courseTableForStd!courseTable.action", data=post_data, headers=self.__headers, cookies=self.aao_cookies)
+        course_data = requests.post("http://219.216.96.4/eams/courseTableForStd!courseTable.action",
+                                    data=post_data,
+                                    headers=self.__headers,
+                                    cookies=self.aao_cookies,
+                                    proxies=proxies['aao'])
         teachers = re.findall('var teachers = \[{id:.*?,name:"(.*?)",lab:false}\];', course_data.text)
         course_names = re.findall('actTeacherName.join\(\',\'\),".*?","(.*?)"', course_data.text)
         course_classroom = re.findall('actTeacherName.join\(\',\'\),".*?",".*?",".*?","(.*?)"', course_data.text)
@@ -424,7 +448,9 @@ class NeuStu(object):
         trade_url = 'http://ecard.neu.edu.cn/selfsearch/User/ConsumeInfo.aspx'
         page = 1
         res = []
-        query_page = requests.get('http://ecard.neu.edu.cn/selfsearch/User/ConsumeInfo.aspx', cookies=self.card_cookies)
+        query_page = requests.get('http://ecard.neu.edu.cn/selfsearch/User/ConsumeInfo.aspx',
+                                  cookies=self.card_cookies,
+                                  proxies=proxies['card'])
         while True:
             data = {
                 '__EVENTTARGET': 'ctl00$ContentPlaceHolder1$AspNetPager1',
@@ -444,7 +470,10 @@ class NeuStu(object):
                 data['ctl00$ContentPlaceHolder1$btnSearch'] = '查  询'
                 data['__EVENTARGUMENT'] = ''
 
-            query_page = requests.post(trade_url, data=data, cookies=self.card_cookies, headers=self.__headers)
+            query_page = requests.post(trade_url, data=data,
+                                       cookies=self.card_cookies,
+                                       headers=self.__headers,
+                                       proxies=proxies['card'])
             page_num = re.findall('style="margin-right:5px;">(\d+)</a>', query_page.text)
             trade_time = re.findall('<span id="Content.*?">(.*?)</span>', query_page.text)
             trades = re.findall(
@@ -477,7 +506,7 @@ class NeuStu(object):
         requests_url = 'http://ecard.neu.edu.cn/selfsearch/User/DoorInfo.aspx'
         page = 1
         res = []
-        query_page = requests.get(requests_url, cookies=self.card_cookies)
+        query_page = requests.get(requests_url, cookies=self.card_cookies, proxies=proxies['card'])
 
         while True:
             # data的参数是通过浏览器行为分析得出的
@@ -499,7 +528,11 @@ class NeuStu(object):
                 data['__EVENTTARGET'] = 'ctl00$ContentPlaceHolder1$AspNetPager1'
                 data['__EVENTARGUMENT'] = str(page)
 
-            query_page = requests.post(requests_url, data=data, cookies=self.card_cookies, headers=self.__headers)
+            query_page = requests.post(requests_url,
+                                       data=data,
+                                       cookies=self.card_cookies,
+                                       headers=self.__headers,
+                                       proxies=proxies['card'])
             page_num = re.findall('style="margin-right:5px;">(\d+)</a><a class="aspnetpager"', query_page.text)
             records = re.findall(
                 '<td>.*?</td><td>(.*?)</td><td>(.*?)</td><td>(.*?)</td><td>(.*?)</td>',
@@ -528,7 +561,7 @@ class NeuStu(object):
         # 生成续借请求链接
         for book in book_list:
             extend_url += ('&'+book+'=Y')
-        response = requests.get(extend_url)
+        response = requests.get(extend_url, proxies=proxies['library'])
         response_text = str(response.content,'utf8')
         if len(re.findall('<td class=td1>不能再续借 \(还书日期没改变\)。</td> ',response_text))>0:
             return False
@@ -547,7 +580,10 @@ class NeuStu(object):
             'ctl00$ContentPlaceHolder1$btnLoss': '挂  失'
         }
         response = requests.post('http://ecard.neu.edu.cn/selfsearch/User/UserLoss.aspx',
-                                 data=data, cookies=self.card_cookies, headers=self.__headers)
+                                 data=data,
+                                 cookies=self.card_cookies,
+                                 headers=self.__headers,
+                                 proxies=proxies['card'])
         return re.findall("showMsg\('(.*?)'\)", response.text)[0]
 
     # 初始化
@@ -560,4 +596,7 @@ class NeuStu(object):
         self.card_cookies = False
         # 登录一网通办 获取登录cookies 如果成功，success将改变为True，可以通过此参数确定账号密码是否正确以及是否完成验证
         self.__index_login()
+
+
+
 
