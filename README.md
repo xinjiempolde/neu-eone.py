@@ -29,11 +29,11 @@
   * 挂失卡  
   
 不但如此，为了防止学校出于安全因素关闭非校内网访问或出于安全目的您想隐藏自己的真实IP，本爬虫温馨的提供了代理支持，如果您需要代理，可以直接在`proxies.json`中设置您的代理服务器，支持情况与requests相同，您可以使用http代理、https代理、sock5代理。不过要注意的是，如果您使用的是sock5代理需要安装requests的拓展组件，您可以执行以下命令安装
-```
-$python -m pip install requests[socks]
+```shell
+python -m pip install requests[socks]
 ```
 对于您的代理配置需要在`proxies.json`中进行的，它长这个样子：
-```
+```json
 {
   "aao": {
    // 教务处系统代理
@@ -67,7 +67,7 @@ $python -m pip install requests[socks]
 这时你便可以得到一个NeuStu的实例.  
 
 实例化LibrarySearch类只需要传入一个参数，即书籍名称,然后使用get_books(page)方法进行查询,page代表查询的页数，每页十个结果。如果你想知道一共有多少个结果，只需要获取sum这个成员的值即可。下面是一段代码实例
-```
+```Python3
 # 初始化搜索引擎，搜索与‘java’有关的书籍  
 books = LibrarySearch('java')  
 # 打印搜索到的书籍数  
