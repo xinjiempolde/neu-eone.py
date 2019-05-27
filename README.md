@@ -36,18 +36,17 @@ python -m pip install requests[socks]
 ```json
 {
   "aao": {
-   // 教务处系统代理
     "http": "socks5://user:pass@host:port",
     "https": "socks5://user:pass@host:port"
   },
   "card": {
-   // 校园卡系统代理
+  
   },
   "library": {
-   // 图书馆系统代理
+  
   },
   "index": {
-   // 一网通办系统代理
+  
   }
 }
 ```
