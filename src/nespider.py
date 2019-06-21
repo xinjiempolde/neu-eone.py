@@ -82,7 +82,7 @@ class NeuStu(object):
         res = []
         for i in range(0, len(week_str)):
             if week_str[i] == '1':
-                res.append(i)
+                res.append(i+1)
         return res
 
     # 一网通办登录，在登录过程中将由pass.neu.edu.cn 跳转至 portal.neu.edu.cn
@@ -434,6 +434,8 @@ class NeuStu(object):
             res[int(i / 11)][index] = hash_list[i].strip()
         return res
 
+    # 返回格式根据 遵守UUIA 详情 https://github.com/uuia/UUIA/blob/master/API.md
+    # SKXQ:课在星期几，SKZC第几周上课 CXJC:一节课的课时 SKJC: 开始节数 KKXQM:学期（春、夏、秋） KKXND：学年
     def get_course(self, school_year, semester):
         data = requests.post("https://portal.neu.edu.cn/tp_up/up/widgets/getClassbyUserInfo",
                             cookies=self.index_cookies,
@@ -443,9 +445,35 @@ class NeuStu(object):
                             },
                             proxies=proxies['index'],
                             data='{"schoolYear":"%s","semester":"%s","learnWeek":"1"}'%(school_year,semester)).json()
+        courses = []
         for i in range(len(data)):
-            data[i]['SKZC'] = NeuStu.__week_num(data[i]['SKZC'])
-        return data
+            if data[i]['KKXND']!=school_year or data[i]['KKXQM']!=semester:
+                continue
+            not_have = True
+            for j in courses:
+                if j['name'] == data[i]['KCMC']:
+                    is_have = False
+                    if data[i]['JSXM'] not in j['teachers']:
+                        j['teachers'].append(data[i]['JSXM'])
+                    j['schedules'].append({
+                        "weeks": self.__week_num(data[i]['SKZC']),
+                        "day": int(data[i]['SKXQ']),
+                        "section": [ section for section in range(int(data[i]['KKXQM']),  1+int(data[i]['KKXQM'])+int(data[i]['SKJC']))],
+                        "classroom": data[i]['JXDD']
+                    })
+                    continue
+            if not_have:
+                courses.append({
+                    "name": data[i]['KCMC'],
+                    "teachers": [data[i]['JSXM']],
+                    "schedules": [{
+                        "weeks": self.__week_num(data[i]['SKZC']),
+                        "day": int(data[i]['SKXQ']),
+                        "section": [ section for section in range(int(data[i]['KKXQM']),  1+int(data[i]['KKXQM'])+int(data[i]['SKJC']))],
+                        "classroom": data[i]['JXDD']
+                    }]
+                })
+        return courses
 
     # 通过教务处获取课表以及课程信息，如果教务处限制外网访问将无法在外网使用，建议使用get_course
     def get_course_by_aao(self, semester):
@@ -677,3 +705,4 @@ class NeuStu(object):
         self.card_cookies = False
         # 登录一网通办 获取登录cookies 如果成功，success将改变为True，可以通过此参数确定账号密码是否正确以及是否完成验证
         self.__index_login()
+
