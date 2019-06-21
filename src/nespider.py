@@ -3,13 +3,13 @@ import json
 import re
 import time
 
-with open('proxies.json','r') as f:
+with open('proxies.json', 'r') as f:
     proxies = json.loads(f.read())
 
 
 # 图书馆搜索引擎
 class LibrarySearch(object):
-    
+
     # 分析第一页获取 其他页的URL
     def __decode_first_text(self, text):
 
@@ -35,11 +35,11 @@ el1>索书号：<td class=content valign=top>(.*?) \n<tr><td class=label1>出版
         if page == 1 or page == '1':
             return self.first
         else:
-            if int(page-1)*10 > self.sum:
+            if int(page - 1) * 10 > self.sum:
                 return None
             else:
-                page = str(int(page)-1)+'1'
-        text = str(requests.get(self.query_url+page, proxies=proxies['library']).content, 'utf8')
+                page = str(int(page) - 1) + '1'
+        text = str(requests.get(self.query_url + page, proxies=proxies['library']).content, 'utf8')
         res = re.findall('<tr><td class=label1>作者：<td class=content valign=top>(.*?)<td class=lab\
 el1>索书号：<td class=content valign=top>(.*?) \n<tr><td class=label1>出版社：<td class\
 =content valign=top>(.*?)<td class=label>年份：<td class=content valign=top>(.*?) ', text)
@@ -56,10 +56,12 @@ el1>索书号：<td class=content valign=top>(.*?) \n<tr><td class=label1>出版
 
     def __init__(self, keyword):
         # 查询参数
-        param = '?func=find-b&find_code=WRD&request=%s&filter_code_1=WLN&filter_request_1=&filter_code_2=WYR&filter_request_2=&filter_code_3=WYR&filter_request_3=&filter_code_4=WFM&filter_request_4=&filter_code_5=WSL&filter_request_5='%keyword
-        query_page = str(requests.get('http://202.118.8.7:8991/F/', proxies=proxies['library']).content, 'utf8')  # 与line254相同 不能直接获取text 需要手动抓换
-        post_url = re.findall('<form method=get name=form1 action="(.*?)" onsubmit="return presearch\(this\);">', query_page)[0]
-        query_res = requests.get(post_url+param, proxies=proxies['library'])
+        param = '?func=find-b&find_code=WRD&request=%s&filter_code_1=WLN&filter_request_1=&filter_code_2=WYR&filter_request_2=&filter_code_3=WYR&filter_request_3=&filter_code_4=WFM&filter_request_4=&filter_code_5=WSL&filter_request_5=' % keyword
+        query_page = str(requests.get('http://202.118.8.7:8991/F/', proxies=proxies['library']).content,
+                         'utf8')  # 与line254相同 不能直接获取text 需要手动抓换
+        post_url = \
+        re.findall('<form method=get name=form1 action="(.*?)" onsubmit="return presearch\(this\);">', query_page)[0]
+        query_res = requests.get(post_url + param, proxies=proxies['library'])
         query_text = str(query_res.content, 'utf8')
         self.__decode_first_text(query_text)  # 进行第一页的查询
 
@@ -70,7 +72,7 @@ class NeuStu(object):
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
         (KHTML, like Gecko) Chrome/74.0.3729.131 Safari/537.36',
     }
-    
+
     # 这个方法是在课表转换中使用的
     # 课表中为了表示某一周是否有课使用如：011011这种字符串来表示
     # 这种字符串的意义如下：
@@ -79,7 +81,7 @@ class NeuStu(object):
     def __week_num(week_str):
         res = []
         for i in range(0, len(week_str)):
-            if week_str[i]=='1':
+            if week_str[i] == '1':
                 res.append(i)
         return res
 
@@ -97,7 +99,7 @@ class NeuStu(object):
         pl = len(self.password)
 
         # JESESSIONID是一个必不可少的cookie
-        self.pass_cookies['JSESSIONID'] = login_page.cookies['JSESSIONID']
+        self.pass_cookies['jsessionid_tpass'] = login_page.cookies['jsessionid_tpass']
 
         post_data = {
             'rsa': rsa,
@@ -142,8 +144,10 @@ class NeuStu(object):
         response = requests.get(card_url, cookies=self.pass_cookies, proxies=proxies['index'])
 
         data = {
-            'username': re.findall("<input type=hidden name='username' id='username' value='(.*?)'/>", response.text)[0],
-            'timestamp': re.findall("<input type=hidden name='timestamp' id='timestamp' value='(.*?)'/>", response.text)[0],
+            'username': re.findall("<input type=hidden name='username' id='username' value='(.*?)'/>", response.text)[
+                0],
+            'timestamp':
+                re.findall("<input type=hidden name='timestamp' id='timestamp' value='(.*?)'/>", response.text)[0],
             'auid': re.findall("<input type=hidden name='auid' id='auid' value='(.*?)'/>", response.text)[0]
         }
 
@@ -153,7 +157,7 @@ class NeuStu(object):
                                     headers=self.__headers,
                                     proxies=proxies['card'])
 
-        self.card_cookies ={
+        self.card_cookies = {
             '.ASPXAUTSSM': get_session.history[0].cookies['.ASPXAUTSSM'],
             'ASP.NET_SessionId': response.cookies['ASP.NET_SessionId']
         }
@@ -225,16 +229,33 @@ class NeuStu(object):
                                  proxies=proxies['index'])
         return response.json()
 
+    @property
+    def borrow_info(self):
+        post_url = 'https://portal.neu.edu.cn/tp_up/up/subgroup/getLibraryInfo'
+        my_headers = {
+            'Referer': 'https://portal.neu.edu.cn/tp_up/view?m=up',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.131 Safari/537.36',
+            'Origin': 'https://portal.neu.edu.cn',
+            'Content-Type': 'application/json;charset=UTF-8'
+        }
+        response = requests.post(post_url,
+                                headers=my_headers,
+                                cookies=self.index_cookies,
+                                data='{}',
+                                proxies=proxies['index'])
+        return response.json()
+
+
     # 卡是否挂失
     @property
     def is_card_lost(self):
         # 如果还没有通过一网通办获取到一卡通的cookies，则获取
-        if self.card_cookies==False:
+        if self.card_cookies == False:
             self.__card_login()
         info_url = 'http://ecard.neu.edu.cn/selfsearch/User/Home.aspx'
         info_page = requests.get(info_url, cookies=self.card_cookies, proxies=proxies['card'])
-        res =  re.findall('<span>卡状态：(.*?)</span>', info_page.text)[0]
-        if res == '正常卡' :
+        res = re.findall('<span>卡状态：(.*?)</span>', info_page.text)[0]
+        if res == '正常卡':
             return False
         else:
             return True
@@ -285,8 +306,10 @@ class NeuStu(object):
     def library_info(self):
         library_url = self.__library_url()
         response_data = requests.get(library_url, proxies=proxies['library'])
-        borrow_url = re.findall('外借[\s\S]*?href="javascript:replacePage\(\'(.*?)\'\)', str(response_data.content, 'utf8'))[0]
-        history_url = re.findall('借阅历史列表[\s\S]*?href="javascript:replacePage\(\'(.*?)\'\)', str(response_data.content, 'utf8'))[0]
+        borrow_url = \
+        re.findall('外借[\s\S]*?href="javascript:replacePage\(\'(.*?)\'\)', str(response_data.content, 'utf8'))[0]
+        history_url = \
+        re.findall('借阅历史列表[\s\S]*?href="javascript:replacePage\(\'(.*?)\'\)', str(response_data.content, 'utf8'))[0]
         borrow_res = str(requests.get(borrow_url, proxies=proxies['library']).content, 'utf8')
         history_res = str(requests.get(history_url, proxies=proxies['library']).content, 'utf8')
 
@@ -326,19 +349,48 @@ class NeuStu(object):
 
         return {'extend_url': extend_url, 'book_data': res, 'history': histories}
 
+    # 获取每一批次考试的具体信息
+    def __get_exam_detial(self,batch_id):
+        response = requests.get('http://219.216.96.4/eams/stdExamTable!examTable.action?examBatch.id=%s'%batch_id,
+                     cookies=self.aao_cookies, headers=self.__headers,proxies=proxies['aao'],)
+        # 如果访问过快，将无法获取下一批次的考试 0.5是极限
+        time.sleep(0.5)
+        data = re.findall('<td>([\s\S]*?)</td>', response.text)
+        return [{
+            'id': data[i*9],
+            'name': data[i*9+1],
+            'type': data[i*9+2],
+            'date': data[i*9+3],
+            'time': data[i*9+4],
+            'location': re.findall('<a.*?>(.*?)</a>',data[i*9+5])[0],
+            'seat': data[i*9+6],
+            'condition': data[i*9+7],
+            'info': data[i*9+8].strip()
+        } for i in range(int(len(data)/9))]
+
+    # 获取当前学期的考试
+    def get_exams(self):
+        if self.aao_cookies== None:
+            self.__aao_login()
+        batchs = requests.get('http://219.216.96.4/eams/stdExamTable.action',
+                              proxies=proxies['aao'],cookies=self.aao_cookies, headers=self.__headers)
+        options = re.findall('<option value="(.*?)".*?>(.*?)</option>',batchs.text)
+        return [{'batch':i[1],'exams':self.__get_exam_detial(i[0])} for i in options]
+
     # 获取考试成绩
     def get_grade(self, semester):
         # 如果没有登录教务处，尝试登录
-        if self.aao_cookies==None:
+        if self.aao_cookies == None:
             self.__aao_login()
-        response = requests.get('http://219.216.96.4/eams/teach/grade/course/person!search.action?semesterId='+str(semester),
-                                proxies=proxies['aao'],
-                                cookies=self.aao_cookies,
-                                headers=self.__headers)
+        response = requests.get(
+            'http://219.216.96.4/eams/teach/grade/course/person!search.action?semesterId=' + str(semester),
+            proxies=proxies['aao'],
+            cookies=self.aao_cookies,
+            headers=self.__headers)
         hash_list = re.findall('<td.*?>([\s\S]*?)</td>', response.text)
         res = []
         # 初始化返回数据
-        for i in range(0, int(len(hash_list)/11)):
+        for i in range(0, int(len(hash_list) / 11)):
             res.append({
                 'semester': '',
                 'course_code': '',
@@ -350,42 +402,55 @@ class NeuStu(object):
                 'mid_grade': '',
                 'class_grade': '',
                 'sum_grade': '',
-                'gp' : ''
+                'gp': ''
             })
         # 你可能觉得这种做法很笨，但这获取并不比使用正则表达式慢，而且更容易理解
         # 返回的页面实在太难以阅读了 不方便写正则表达式
         for i in range(0, len(hash_list)):
             index = ''
-            if i%11 == 0:
+            if i % 11 == 0:
                 index = 'semester'
-            elif i%11 == 1:
+            elif i % 11 == 1:
                 index = 'course_code'
-            elif i%11 == 2:
+            elif i % 11 == 2:
                 index = 'course_ord'
-            elif i%11 == 3:
+            elif i % 11 == 3:
                 index = 'course_name'
-            elif i%11 == 4:
+            elif i % 11 == 4:
                 index = 'course_type'
-            elif i%11 == 5:
+            elif i % 11 == 5:
                 index = 'course_credit'
-            elif i%11 == 6:
+            elif i % 11 == 6:
                 index = 'final_grade'
-            elif i%11 == 7:
+            elif i % 11 == 7:
                 index = 'mid_grade'
-            elif i%11 == 8:
+            elif i % 11 == 8:
                 index = 'class_grade'
-            elif i%11 == 9:
+            elif i % 11 == 9:
                 index = 'sum_grade'
-            elif i%11 == 10:
+            elif i % 11 == 10:
                 index = 'gp'
             # strip是为了过滤空白字符 如回车、空格、制表符
-            res[int(i/11)][index] = hash_list[i].strip()
+            res[int(i / 11)][index] = hash_list[i].strip()
         return res
 
-    # 获取课表以及课程信息
-    def get_course(self, semester):
+    def get_course(self, school_year, semester):
+        data = requests.post("https://portal.neu.edu.cn/tp_up/up/widgets/getClassbyUserInfo",
+                            cookies=self.index_cookies,
+                            headers={
+                                'Accept':'application/json, text/javascript, */*; q=0.01',
+                                'Content-Type': 'application/json;charset=UTF-8'
+                            },
+                            proxies=proxies['index'],
+                            data='{"schoolYear":"%s","semester":"%s","learnWeek":"1"}'%(school_year,semester)).json()
+        for i in range(len(data)):
+            data[i]['SKZC'] = NeuStu.__week_num(data[i]['SKZC'])
+        return data
+
+    # 通过教务处获取课表以及课程信息，如果教务处限制外网访问将无法在外网使用，建议使用get_course
+    def get_course_by_aao(self, semester):
         # 如果还没有登录新教务处则登录
-        if self.aao_cookies==None:
+        if self.aao_cookies == None:
             self.__aao_login()
         post_data = {
             'ignoreHead': '1',
@@ -407,8 +472,11 @@ class NeuStu(object):
         course_classroom = re.findall('actTeacherName.join\(\',\'\),".*?",".*?",".*?","(.*?)"', course_data.text)
         course_weeks_str = re.findall('actTeacherName.join\(\',\'\),".*?",".*?",".*?",".*?","(.*?)"', course_data.text)
         course_class = re.findall('activity = new TaskActivity([\s\S]*?)var teachers', course_data.text)
-        course_class = course_class + re.findall('activity = new TaskActivity([\s\S]*?)table0.marshalTable', course_data.text)
-        course_info = re.findall('<td>(.*?)</td><td>(.*?)</td><td>(.*?)</td><td>[\s\S]*?<a href=".*?" onclick=".*?" title="点击显示单个教学任务具体安排">.*?</a>[\s\S]*?</td><td>(.*?)</td><td>', course_data.text)
+        course_class = course_class + re.findall('activity = new TaskActivity([\s\S]*?)table0.marshalTable',
+                                                 course_data.text)
+        course_info = re.findall(
+            '<td>(.*?)</td><td>(.*?)</td><td>(.*?)</td><td>[\s\S]*?<a href=".*?" onclick=".*?" title="点击显示单个教学任务具体安排">.*?</a>[\s\S]*?</td><td>(.*?)</td><td>',
+            course_data.text)
 
         for count in range(0, len(course_class)):
             day = re.findall('index =(\d+)\*unitCount\+\d+', course_class[count])
@@ -443,7 +511,7 @@ class NeuStu(object):
     # 获取校园卡消费记录
     def get_card_trade(self, start, end):
         # 如果还没有通过一网通办获取到一卡通的cookies，则获取
-        if self.card_cookies==False:
+        if self.card_cookies == False:
             self.__card_login()
         trade_url = 'http://ecard.neu.edu.cn/selfsearch/User/ConsumeInfo.aspx'
         page = 1
@@ -466,7 +534,7 @@ class NeuStu(object):
                 'ctl00$ContentPlaceHolder1$txtEndDate': end,
             }
 
-            if page==1:
+            if page == 1:
                 data['ctl00$ContentPlaceHolder1$btnSearch'] = '查  询'
                 data['__EVENTARGUMENT'] = ''
 
@@ -492,7 +560,7 @@ class NeuStu(object):
                     'terminal': trades[i][5]
                 }
                 res.append(append_content)
-            if 1-(str(page + 1) in page_num):
+            if 1 - (str(page + 1) in page_num):
                 break
             page += 1
         return res
@@ -500,7 +568,7 @@ class NeuStu(object):
     # 门禁记录，start与end格式为都如2019-05-18这样
     def get_door_info(self, start, end):
         # 如果还没有通过一网通办获取到一卡通的cookies，则获取
-        if self.card_cookies==False:
+        if self.card_cookies == False:
             self.__card_login()
         # 门禁记录请求界面
         requests_url = 'http://ecard.neu.edu.cn/selfsearch/User/DoorInfo.aspx'
@@ -522,7 +590,7 @@ class NeuStu(object):
                 'ctl00$ContentPlaceHolder1$txtEndDate': end,
             }
 
-            if page==1:
+            if page == 1:
                 data['ctl00$ContentPlaceHolder1$btnSearch'] = '查  询'
             else:
                 data['__EVENTTARGET'] = 'ctl00$ContentPlaceHolder1$AspNetPager1'
@@ -545,10 +613,10 @@ class NeuStu(object):
                     'io': records[i][2],
                     'result': records[i][3]
                 }
-                if append_content['time']=='&nbsp;':
+                if append_content['time'] == '&nbsp;':
                     break
                 res.append(append_content)
-            if 1-(str(page + 1) in page_num):
+            if 1 - (str(page + 1) in page_num):
                 break
             page += 1
 
@@ -560,10 +628,10 @@ class NeuStu(object):
         extend_url = self.library_info['extend_url']
         # 生成续借请求链接
         for book in book_list:
-            extend_url += ('&'+book+'=Y')
+            extend_url += ('&' + book + '=Y')
         response = requests.get(extend_url, proxies=proxies['library'])
-        response_text = str(response.content,'utf8')
-        if len(re.findall('<td class=td1>不能再续借 \(还书日期没改变\)。</td> ',response_text))>0:
+        response_text = str(response.content, 'utf8')
+        if len(re.findall('<td class=td1>不能再续借 \(还书日期没改变\)。</td> ', response_text)) > 0:
             return False
         else:
             return True
@@ -586,6 +654,19 @@ class NeuStu(object):
                                  proxies=proxies['card'])
         return re.findall("showMsg\('(.*?)'\)", response.text)[0]
 
+    # 登录校园网关，如果登录成功，返回ip
+    def ipgw_login(self):
+        response = requests.get("https://pass.neu.edu.cn/tpass/login?service=https%3A%2F%2Fipgw.neu.edu.cn%2Fsrun_cas.php%3Fac_id%3D1",
+                     cookies=self.pass_cookies,
+                     headers=self.__headers
+                     )
+        try:
+            return re.findall('当前IP：<span id="user_name" style="float:right;color: #894324;">(.*?)</span>',response.text)[0]
+        finally:
+            return None
+
+
+
     # 初始化
     def __init__(self, stu_id, pwd):
         self.id = str(stu_id)
@@ -596,7 +677,3 @@ class NeuStu(object):
         self.card_cookies = False
         # 登录一网通办 获取登录cookies 如果成功，success将改变为True，可以通过此参数确定账号密码是否正确以及是否完成验证
         self.__index_login()
-
-
-
-
